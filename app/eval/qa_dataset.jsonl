@@ -1,0 +1,25 @@
+{"question": "Where is the retry logic implemented?", "relevant_chunk_ids": ["src/requests/adapters.py:201-222"], "expected_answer_contains": ["max_retries", "Retry"]}
+{"question": "How does the library handle SSL certificate verification?", "relevant_chunk_ids": ["src/requests/adapters.py:307-364"], "expected_answer_contains": ["verify", "cert_reqs", "CA bundle"]}
+{"question": "What happens when a request times out?", "relevant_chunk_ids": ["src/requests/adapters.py:634-747"], "expected_answer_contains": ["timeout", "ConnectTimeout", "ReadTimeout"]}
+{"question": "Where is the RetryError exception defined?", "relevant_chunk_ids": ["src/requests/exceptions.py:142-145"], "expected_answer_contains": ["RetryError", "RequestException"]}
+{"question": "What method calls build_response and where?", "relevant_chunk_ids": ["src/requests/adapters.py:634-747"], "expected_answer_contains": ["build_response", "send"]}
+{"question": "Where are cookies extracted and added to a cookie jar?", "relevant_chunk_ids": ["src/requests/cookies.py:135-150"], "expected_answer_contains": ["extract_cookies_to_jar", "cookiejar"]}
+{"question": "Where is the redirect-following logic implemented?", "relevant_chunk_ids": ["src/requests/sessions.py:186-308"], "expected_answer_contains": ["allow_redirects", "resolve_redirects"]}
+{"question": "Where is HTTP Basic Authentication implemented?", "relevant_chunk_ids": ["src/requests/auth.py:85-113"], "expected_answer_contains": ["HTTPBasicAuth"]}
+{"question": "Where is streaming response content handled?", "relevant_chunk_ids": ["src/requests/models.py:907-979"], "expected_answer_contains": ["iter_content"]}
+{"question": "How does the adapter select a proxy manager for a given proxy URL?", "relevant_chunk_ids": ["src/requests/adapters.py:269-305"], "expected_answer_contains": ["proxy_manager_for", "proxy"]}
+{"question": "What happens when a Session is used as a context manager (with statement)?", "relevant_chunk_ids": ["src/requests/sessions.py:505-506"], "expected_answer_contains": ["__enter__", "Session"]}
+{"question": "How does the Response object parse JSON content?", "relevant_chunk_ids": ["src/requests/models.py:1091-1124"], "expected_answer_contains": ["json", "complexjson"]}
+{"question": "How does the Response determine its apparent character encoding?", "relevant_chunk_ids": ["src/requests/models.py:897-904"], "expected_answer_contains": ["apparent_encoding", "chardet"]}
+{"question": "What does raise_for_status do and when does it raise an exception?", "relevant_chunk_ids": ["src/requests/models.py:1144-1171"], "expected_answer_contains": ["raise_for_status", "HTTPError"]}
+{"question": "How are session-level settings merged with per-request settings?", "relevant_chunk_ids": ["src/requests/sessions.py:76-105"], "expected_answer_contains": ["merge_setting"]}
+{"question": "How is HTTP Digest Authentication implemented?", "relevant_chunk_ids": ["src/requests/auth.py:124-354"], "expected_answer_contains": ["HTTPDigestAuth", "digest"]}
+{"question": "How does a Session mount a transport adapter to a URL prefix?", "relevant_chunk_ids": ["src/requests/sessions.py:888-897"], "expected_answer_contains": ["mount", "adapter"]}
+{"question": "How does the library prepare and normalize a request URL?", "relevant_chunk_ids": ["src/requests/models.py:483-563"], "expected_answer_contains": ["prepare_url"]}
+{"question": "How is the request body prepared for sending?", "relevant_chunk_ids": ["src/requests/models.py:576-652"], "expected_answer_contains": ["prepare_body"]}
+{"question": "How does the library encode files for multipart file upload?", "relevant_chunk_ids": ["src/requests/models.py:183-251"], "expected_answer_contains": ["_encode_files", "multipart"]}
+{"question": "Where is the ChunkedEncodingError exception defined?", "relevant_chunk_ids": ["src/requests/exceptions.py:130-131"], "expected_answer_contains": ["ChunkedEncodingError"]}
+{"question": "Where is the is_redirect property defined on a Response?", "relevant_chunk_ids": ["src/requests/models.py:877-883"], "expected_answer_contains": ["is_redirect", "location"]}
+{"question": "How are environment settings (proxies, verify, cert) merged into a request?", "relevant_chunk_ids": ["src/requests/sessions.py:831-868"], "expected_answer_contains": ["merge_environment_settings"]}
+{"question": "How does the library prepare event hooks for a request?", "relevant_chunk_ids": ["src/requests/models.py:722-729"], "expected_answer_contains": ["prepare_hooks", "hooks"]}
+{"question": "Where does the library encode request parameters into a URL-encoded format?", "relevant_chunk_ids": ["src/requests/models.py:134-182"], "expected_answer_contains": ["_encode_params", "urlencode"]}

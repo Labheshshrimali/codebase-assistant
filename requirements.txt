@@ -1,0 +1,19 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+python-dotenv==1.0.1
+# ingestion
+gitpython==3.1.43
+tree-sitter>=0.23.0
+tree-sitter-python==0.23.2
+# retrieval / indexing
+qdrant-client==1.11.3
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+sentence-transformers==3.1.1
+rank-bm25==0.2.2
+networkx==3.3
+# generation
+anthropic==0.34.2
+# eval
+tqdm==4.66.5

@@ -1,0 +1,22 @@
+version: "3.8"
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    volumes:
+      - ./data/qdrant:/qdrant/storage
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    depends_on:
+      - qdrant
+    environment:
+      - QDRANT_URL=http://qdrant:6333
+      - OLLAMA_URL=http://host.docker.internal:11434/api/generate
+    volumes:
+      - ./data/repos:/app/data/repos
+      - ./data/index_cache:/app/data/index_cache
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
