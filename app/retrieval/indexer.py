@@ -25,10 +25,11 @@ def _tokenize(text: str) -> list[str]:
 
 class RepoIndex:
     def __init__(self, repo_slug: str, qdrant_url: str = None):
-        qdrant_url = qdrant_url or os.environ.get("QDRANT_URL", "http://localhost:6333")
         self.repo_slug = repo_slug
         self.collection = f"repo_{repo_slug}"
-        self.client = QdrantClient(url=qdrant_url)
+        resolved_url = qdrant_url or os.environ.get("QDRANT_URL", "http://localhost:6333")
+        api_key = os.environ.get("QDRANT_API_KEY")
+        self.client = QdrantClient(url=resolved_url, api_key=api_key)
         self.graph = nx.DiGraph()
         self.chunks: list[Chunk] = []
         self.bm25: BM25Okapi | None = None
@@ -114,4 +115,3 @@ class RepoIndex:
             neighbors |= next_frontier
             frontier = next_frontier
         return list(neighbors - set(chunk_idxs))
-
