@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.ingestion.chunker import chunk_repo
@@ -8,6 +9,14 @@ from app.retrieval.indexer import RepoIndex
 from app.api.generate import answer_question
 
 app = FastAPI(title="Codebase Assistant")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 _indexes: dict[str, RepoIndex] = {}
 
