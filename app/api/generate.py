@@ -1,72 +1,73 @@
-"""Turn retrieved chunks into a grounded answer with file:line citations.
+"""Generation step: takes retrieved code chunks + a question, and produces
+a cited answer using a local Ollama model instead of a paid API.
 
-Uses a local Ollama model (free, no API key, runs entirely on your machine)
-instead of a paid API. Falls back to a short summary (not a raw code dump)
-when Ollama isn't reachable, e.g. in cloud deployments where it isn't
-installed — the citation panel already shows the actual code, so the
-fallback text doesn't need to repeat it.
-"""
+In the deployed (hosted) version, Ollama is not reachable (no persistent
+local LLM hosting on free tiers), so generation fails gracefully with a
+clear message instead of crashing the request."""
+import os
+import requests as http
 
-import json
-import urllib.request
-
-from app.retrieval.hybrid import RetrievalResult
-
-OLLAMA_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "llama3.2"
-
-SYSTEM_PROMPT = """You are a precise codebase assistant. Answer the user's \
-question using ONLY the provided code context. For every claim, cite the \
-source using the exact citation string given (e.g. [app/utils.py#L12-L20]). \
-If the context doesn't contain enough information to answer confidently, \
-say so explicitly instead of guessing."""
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/generate")
+MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2")
+MAX_CHUNKS_IN_PROMPT = 3
+MAX_CHARS_PER_CHUNK = 1200
+GENERATION_TIMEOUT = float(os.environ.get("GENERATION_TIMEOUT", "10"))
 
 
-def build_context(results: list[RetrievalResult]) -> str:
-    blocks = []
-    for r in results:
-        blocks.append(
-            f"### {r.chunk.citation} ({r.chunk.node_type} {r.chunk.name})\n"
-            f"```python\n{r.chunk.code}\n```"
+def _build_prompt(question: str, chunks: list) -> str:
+    context_blocks = []
+    for c in chunks[:MAX_CHUNKS_IN_PROMPT]:
+        code = c.chunk.code
+        if len(code) > MAX_CHARS_PER_CHUNK:
+            code = code[:MAX_CHARS_PER_CHUNK] + "\n... (truncated)"
+        context_blocks.append(
+            f"### {c.chunk.repo_relative_path} (lines {c.chunk.start_line}-{c.chunk.end_line})\n"
+            f"```python\n{code}\n```"
         )
-    return "\n\n".join(blocks)
+    context = "\n\n".join(context_blocks)
+    return f"""You are a code assistant. Answer the question using ONLY the code below.
+Cite the file and line numbers you used in your answer. Be concise.
+
+{context}
+
+Question: {question}
+
+Answer (include file:line citations):"""
 
 
-def _short_fallback_summary(results: list[RetrievalResult]) -> str:
-    """A brief, readable summary used when no LLM is available to generate
-    a real answer — lists what was found without dumping full source code,
-    since the frontend's citation panel already shows the code separately.
-    """
-    lines = [
-        f"Generation isn't available in this environment (Ollama runs locally only). "
-        f"Found {len(results)} relevant code locations — click a citation below to view each one:\n"
+def _citations(retrieved_chunks: list) -> list:
+    return [
+        {
+            "file": c.chunk.repo_relative_path,
+            "start_line": c.chunk.start_line,
+            "end_line": c.chunk.end_line,
+            "code": c.chunk.code,
+        }
+        for c in retrieved_chunks
     ]
-    for i, r in enumerate(results, start=1):
-        lines.append(f"{i}. `{r.chunk.citation}` — {r.chunk.node_type} `{r.chunk.name}`")
-    return "\n".join(lines)
 
 
-def answer_question(question: str, results: list[RetrievalResult]) -> dict:
-    context = build_context(results)
-    prompt = f"{SYSTEM_PROMPT}\n\nContext:\n\n{context}\n\nQuestion: {question}"
+def generate_answer(question: str, retrieved_chunks: list) -> dict:
+    prompt = _build_prompt(question, retrieved_chunks)
+    citations = _citations(retrieved_chunks)
 
-    payload = json.dumps({
-        "model": OLLAMA_MODEL,
-        "prompt": prompt,
-        "stream": False,
-    }).encode("utf-8")
-
-    req = urllib.request.Request(
-        OLLAMA_URL, data=payload, headers={"Content-Type": "application/json"}
-    )
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            data = json.loads(resp.read())
-        answer = data.get("response", "")
+        resp = http.post(OLLAMA_URL, json={"model": MODEL, "prompt": prompt, "stream": False}, timeout=GENERATION_TIMEOUT)
+        resp.raise_for_status()
+        data = resp.json()
+        answer_text = data.get("response", "").strip()
+        return {"answer": answer_text, "citations": citations, "generation_available": True}
     except Exception:
-        answer = _short_fallback_summary(results)
+        return {
+            "answer": (
+                "Answer generation is unavailable in this hosted demo "
+                "(no persistent local LLM on the free tier). The retrieval "
+                "pipeline below found the relevant code with real citations -- "
+                "see the local demo video for full generated answers."
+            ),
+            "citations": citations,
+            "generation_available": False,
+        }
 
-    return {
-        "answer": answer,
-        "citations": [r.chunk.citation for r in results],
-    }
+
+answer_question = generate_answer
