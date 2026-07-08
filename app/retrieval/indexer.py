@@ -2,8 +2,15 @@
   1. vector index (Qdrant)      -> semantic similarity
   2. call/import graph (networkx) -> "what calls / is called by this"
   3. BM25 keyword index           -> exact-term recall (error codes, var names)
-"""
 
+Persistence: Qdrant persists on its own. The graph and BM25 index, plus the
+chunk list itself, are pickled to disk per repo slug so a second /ingest
+call for the same repo loads instantly instead of rebuilding everything.
+
+Call-graph edges are built from real AST 'call' nodes, not regex matching.
+"""
+import os
+import pickle
 import re
 from pathlib import Path
 
@@ -12,34 +19,26 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
+from tree_sitter import Language, Parser
+import tree_sitter_python as tspython
 
 from app.ingestion.chunker import Chunk
 
-EMBED_MODEL_NAME = "all-MiniLM-L6-v2"  # swap for a stronger code model, e.g. jina-embeddings-v2-base-code
+EMBED_MODEL_NAME = "all-MiniLM-L6-v2"
 VECTOR_SIZE = 384
+CACHE_DIR = Path("data/index_cache")
 
 _embedder = SentenceTransformer(EMBED_MODEL_NAME)
+
+PY_LANGUAGE = Language(tspython.language())
+_call_parser = Parser(PY_LANGUAGE)
 
 
 def _tokenize(text: str) -> list[str]:
     return re.findall(r"[A-Za-z_][A-Za-z0-9_]*", text.lower())
 
 
-import os
-
-from tree_sitter import Language, Parser
-import tree_sitter_python as tspython
-
-PY_LANGUAGE = Language(tspython.language())
-_call_parser = Parser(PY_LANGUAGE)
-
-
 def _extract_called_names(code: str) -> set[str]:
-    """Parse code and return the set of function/method names actually
-    CALLED (real 'call' AST nodes), not just any text occurrence of a name.
-    This avoids false positives from comments, strings, or unrelated
-    identifiers that the old regex approach would incorrectly match.
-    """
     tree = _call_parser.parse(code.encode("utf-8"))
     called_names: set[str] = set()
 
@@ -65,15 +64,48 @@ class RepoIndex:
         self.repo_slug = repo_slug
         self.collection = f"repo_{repo_slug}"
         resolved_url = qdrant_url or os.environ.get("QDRANT_URL", "http://localhost:6333")
-        self.client = QdrantClient(url=resolved_url)
+        api_key = os.environ.get("QDRANT_API_KEY")
+        self.client = QdrantClient(url=resolved_url, api_key=api_key)
         self.graph = nx.DiGraph()
         self.chunks: list[Chunk] = []
         self.bm25: BM25Okapi | None = None
 
+    def _cache_path(self) -> Path:
+        return CACHE_DIR / self.repo_slug / "index.pkl"
+
+    def _qdrant_collection_exists(self) -> bool:
+        try:
+            collections = self.client.get_collections().collections
+            return any(c.name == self.collection for c in collections)
+        except Exception:
+            return False
+
+    def is_cached(self) -> bool:
+        return self._cache_path().exists() and self._qdrant_collection_exists()
+
+    def save(self) -> None:
+        cache_file = self._cache_path()
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(cache_file, "wb") as f:
+            pickle.dump({"chunks": self.chunks, "graph": self.graph, "bm25": self.bm25}, f)
+
+    def load(self) -> bool:
+        cache_file = self._cache_path()
+        if not cache_file.exists():
+            return False
+        try:
+            with open(cache_file, "rb") as f:
+                data = pickle.load(f)
+            self.chunks = data["chunks"]
+            self.graph = data["graph"]
+            self.bm25 = data["bm25"]
+            return True
+        except Exception as e:
+            print(f"cache load failed for {self.repo_slug}: {e}")
+            return False
+
     def build(self, chunks: list[Chunk]) -> None:
         self.chunks = chunks
-
-        # 1. vector index
         self.client.recreate_collection(
             collection_name=self.collection,
             vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
@@ -85,10 +117,6 @@ class RepoIndex:
         ]
         self.client.upload_points(collection_name=self.collection, points=points)
 
-        # 2. call/import graph — real AST-based call detection: parses each
-        # chunk and looks for actual 'call' nodes, not just any text
-        # occurrence of a name (which the old regex approach incorrectly
-        # matched inside comments, strings, or unrelated identifiers).
         names_to_chunks: dict[str, list[int]] = {}
         for i, c in enumerate(chunks):
             names_to_chunks.setdefault(c.name, []).append(i)
@@ -98,16 +126,16 @@ class RepoIndex:
             try:
                 called_names = _extract_called_names(c.code)
             except Exception:
-                called_names = set()  # malformed snippet — skip edges for it
+                called_names = set()
             for name in called_names:
                 if name == c.name:
-                    continue  # skip self-recursion edges
+                    continue
                 for j in names_to_chunks.get(name, []):
-                    self.graph.add_edge(i, j)  # i genuinely calls j
+                    self.graph.add_edge(i, j)
 
-        # 3. BM25 keyword index
         tokenized = [_tokenize(c.code) for c in chunks]
         self.bm25 = BM25Okapi(tokenized)
+        self.save()
 
     def vector_search(self, query: str, top_k: int = 10) -> list[int]:
         query_vec = _embedder.encode(query).tolist()
