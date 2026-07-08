@@ -412,7 +412,7 @@
 // ---- Configuration ----
 // Point this at your deployed API, e.g. your Render/HF Spaces URL, or
 // http://127.0.0.1:8000 for local development.
-const API_BASE = window.API_BASE || "http://127.0.0.1:8000";
+const API_BASE = window.API_BASE || "https://labhesh15-codebase-assistant.hf.space";
 
 const chatCol = document.getElementById('chatCol');
 const emptyState = document.getElementById('emptyState');
@@ -493,6 +493,25 @@ function addLoadingTurn() {
   return div;
 }
 
+function normalizeCitation(c) {
+  // Backend may return citations as plain strings like
+  // "path/to/file.py#L142-L200", or as objects like
+  // {file, start_line, end_line, code}. Normalize both to one shape.
+  if (typeof c === 'string') {
+    const match = c.match(/^(.*?)#L(\d+)-L(\d+)$/);
+    if (match) {
+      return { file: match[1], start_line: parseInt(match[2], 10), end_line: parseInt(match[3], 10), code: null };
+    }
+    return { file: c, start_line: '?', end_line: '?', code: null };
+  }
+  return {
+    file: c.file || c.path || c.filename || 'unknown',
+    start_line: c.start_line ?? c.start ?? '?',
+    end_line: c.end_line ?? c.end ?? '?',
+    code: c.code || null,
+  };
+}
+
 function escapeHtml(s) {
   return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -509,7 +528,8 @@ function renderAnswer(data) {
   const answerText = escapeHtml(data.answer || 'No answer returned.');
   html += `<div>${answerText}</div>`;
 
-  const citations = data.citations || [];
+  const rawCitations = data.citations || [];
+  const citations = rawCitations.map(normalizeCitation);
   if (citations.length) {
     html += '<div class="citelist">';
     citations.forEach((c, i) => {
@@ -594,7 +614,7 @@ async function sendQuestion() {
     loadingEl.remove();
     const errEl = document.createElement('div');
     errEl.className = 'answer-card unavailable';
-    errEl.innerHTML = `<div class="notice">⚠ request failed — is the API reachable at ${API_BASE}?</div>`;
+    errEl.innerHTML = `<div class="notice">⚠ ERROR: ${escapeHtml(String(err && err.message || err))}</div>`;
     chatCol.appendChild(errEl);
   } finally {
     sendBtn.disabled = false;
