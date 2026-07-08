@@ -409,10 +409,7 @@
 </div>
 
 <script>
-// ---- Configuration ----
-// Point this at your deployed API, e.g. your Render/HF Spaces URL, or
-// http://127.0.0.1:8000 for local development.
-const API_BASE = window.API_BASE || "https://labhesh15-codebase-assistant.hf.space";
+const API_BASE = "https://labhesh15-codebase-assistant.hf.space";
 
 const chatCol = document.getElementById('chatCol');
 const emptyState = document.getElementById('emptyState');
@@ -431,7 +428,7 @@ const citeCode = document.getElementById('citeCode');
 const closePanel = document.getElementById('closePanel');
 
 let repoSlug = null;
-let citationStore = {}; // id -> {file, start_line, end_line, code}
+let citationStore = {}; 
 
 function slugify(url) {
   try {
@@ -455,20 +452,32 @@ ingestBtn.addEventListener('click', async () => {
   statusDot.className = 'status-dot busy';
   ingestBtn.disabled = true;
   ingestBtn.textContent = 'Indexing…';
-  hint.textContent = 'Cloning, chunking, and embedding the repo — first run can take a minute.';
+  hint.textContent = 'Contacting server... (If server is sleeping, this can take up to 2 minutes to wake up)';
+  
   try {
     const res = await fetch(`${API_BASE}/ingest`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ repo_url: url })
     });
+
+    const contentType = res.headers.get("content-type") || "";
+    if (!res.ok || !contentType.includes("application/json")) {
+      const fallbackText = await res.text();
+      if (fallbackText.includes("waking up") || fallbackText.includes("Space") || fallbackText.includes("<html>")) {
+        throw new Error("Hugging Face container is sleeping. It is waking up right now. Please wait 1 minute and click 'Index repo' again!");
+      }
+      throw new Error(`Server returned non-JSON error status (${res.status}).`);
+    }
+
     const data = await res.json();
     repoSlug = data.repo || slugify(url);
     statusDot.className = 'status-dot ready';
     hint.textContent = `Indexed ${repoSlug} — ${data.chunks_indexed ?? '?'} chunks${data.cached ? ' (loaded from cache)' : ''}. Ask away.`;
   } catch (err) {
     statusDot.className = 'status-dot';
-    hint.textContent = 'Could not reach the API — check API_BASE and that the server is running.';
+    hint.textContent = err.message || 'Could not reach the API — verify your backend container status.';
+    console.error(err);
   } finally {
     ingestBtn.disabled = false;
     ingestBtn.textContent = 'Index repo';
@@ -476,7 +485,8 @@ ingestBtn.addEventListener('click', async () => {
 });
 
 function addUserTurn(text) {
-  if (emptyState) emptyState.remove();
+  const existingEmpty = document.getElementById('emptyState');
+  if (existingEmpty) existingEmpty.remove();
   const div = document.createElement('div');
   div.className = 'turn user';
   div.innerHTML = `<span class="qmark">›</span><span>${escapeHtml(text)}</span>`;
@@ -494,9 +504,6 @@ function addLoadingTurn() {
 }
 
 function normalizeCitation(c) {
-  // Backend may return citations as plain strings like
-  // "path/to/file.py#L142-L200", or as objects like
-  // {file, start_line, end_line, code}. Normalize both to one shape.
   if (typeof c === 'string') {
     const match = c.match(/^(.*?)#L(\d+)-L(\d+)$/);
     if (match) {
@@ -548,7 +555,10 @@ function renderAnswer(data) {
     btn.addEventListener('click', () => openCitation(btn.dataset.cite, citations));
   });
 
-  if (citations.length) openCitation(Object.keys(citationStore).find(k => citationStore[k].idx === 0 && citationStore[k].file === citations[0].file), citations);
+  if (citations.length) {
+    const firstKey = Object.keys(citationStore).find(k => citationStore[k].idx === 0);
+    if (firstKey) openCitation(firstKey, citations);
+  }
 }
 
 async function openCitation(id, allCitations) {
@@ -573,7 +583,7 @@ async function openCitation(id, allCitations) {
     citeTabs.appendChild(tab);
   });
 
-  citeCode.textContent = cite.code || `# source not embedded in response for ${cite.file}:${cite.start_line}-${cite.end_line}\n# (backend can be extended to return snippet text alongside citations)`;
+  citeCode.textContent = cite.code || `# source code snippet not fully returned for ${cite.file}\n# Line Boundary Context: L${cite.start_line} - L${cite.end_line}`;
   citeCode.className = 'language-python';
   hljs.highlightElement(citeCode);
 }
@@ -600,6 +610,12 @@ async function sendQuestion() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ repo: repoSlug, question: text })
     });
+
+    const contentType = res.headers.get("content-type") || "";
+    if (!res.ok || !contentType.includes("application/json")) {
+      throw new Error(`Server execution fault or context query window timeout (${res.status}).`);
+    }
+
     const data = await res.json();
     loadingEl.remove();
     if (data.error) {
@@ -614,7 +630,7 @@ async function sendQuestion() {
     loadingEl.remove();
     const errEl = document.createElement('div');
     errEl.className = 'answer-card unavailable';
-    errEl.innerHTML = `<div class="notice">⚠ ERROR: ${escapeHtml(String(err && err.message || err))}</div>`;
+    errEl.innerHTML = `<div class="notice">⚠ ERROR: ${escapeHtml(err.message || String(err))}</div>`;
     chatCol.appendChild(errEl);
   } finally {
     sendBtn.disabled = false;
