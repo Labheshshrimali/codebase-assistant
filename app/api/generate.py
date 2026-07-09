@@ -1,4 +1,4 @@
-"""Generation step: takes retrieved code chunks + a question, and produces
+﻿"""Generation step: takes retrieved code chunks + a question, and produces
 a cited answer using a local Ollama model instead of a paid API.
 
 In the deployed (hosted) version, Ollama is not reachable (no persistent
@@ -11,7 +11,7 @@ OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/generate")
 MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2")
 MAX_CHUNKS_IN_PROMPT = 3
 MAX_CHARS_PER_CHUNK = 1200
-GENERATION_TIMEOUT = float(os.environ.get("GENERATION_TIMEOUT", "10"))
+GENERATION_TIMEOUT = float(os.environ.get("GENERATION_TIMEOUT", "60"))
 
 
 def _build_prompt(question: str, chunks: list) -> str:
