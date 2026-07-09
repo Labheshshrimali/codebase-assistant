@@ -71,3 +71,4 @@ def generate_answer(question: str, retrieved_chunks: list) -> dict:
 
 
 answer_question = generate_answer
+
