@@ -90,11 +90,14 @@ def chunk_file(file_path: Path, repo_root: Path) -> list[Chunk]:
     return chunks
 
 
+from app.core.config import logger
+
+# ... (rest of the code)
 def chunk_repo(repo_path: Path, files: list[Path]) -> list[Chunk]:
     all_chunks = []
     for f in files:
         try:
             all_chunks.extend(chunk_file(f, repo_path))
         except Exception as e:
-            print(f"skip {f}: {e}")
+            logger.error(f"skip {f}: {e}")
     return all_chunks

@@ -1,14 +1,7 @@
-"""Evaluation harness: this is the file that turns your project from
-'a RAG demo' into 'I measured a 23% precision improvement over baseline'.
+"""Evaluation harness to measure retrieval performance.
 
 Usage:
     python -m app.eval.run_eval --repo psf__requests --dataset app/eval/qa_dataset.jsonl
-
-The qa_dataset.jsonl in this repo is a *placeholder format example* — you
-must build a real one (30-100 questions) by hand for each repo you evaluate
-on. That hand-labeling work is itself a legitimate, defensible part of the
-project; don't skip it or auto-generate it with an LLM and call it ground
-truth.
 """
 
 import argparse

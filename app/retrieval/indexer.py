@@ -23,6 +23,7 @@ from tree_sitter import Language, Parser
 import tree_sitter_python as tspython
 
 from app.ingestion.chunker import Chunk
+from app.core.config import logger
 
 EMBED_MODEL_NAME = "all-MiniLM-L6-v2"
 VECTOR_SIZE = 384
@@ -101,7 +102,7 @@ class RepoIndex:
             self.bm25 = data["bm25"]
             return True
         except Exception as e:
-            print(f"cache load failed for {self.repo_slug}: {e}")
+            logger.error(f"cache load failed for {self.repo_slug}: {e}")
             return False
 
     def build(self, chunks: list[Chunk]) -> None:

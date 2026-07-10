@@ -1,9 +1,6 @@
-﻿"""Generation step: takes retrieved code chunks + a question, and produces
-a cited answer using a local Ollama model instead of a paid API.
-
-In the deployed (hosted) version, Ollama is not reachable (no persistent
-local LLM hosting on free tiers), so generation fails gracefully with a
-clear message instead of crashing the request."""
+"""Generation step: takes retrieved code chunks + a question, and produces
+a cited answer using a local Ollama model.
+"""
 import os
 import requests as http
 
@@ -47,7 +44,7 @@ def _citations(retrieved_chunks: list) -> list:
     ]
 
 
-def generate_answer(question: str, retrieved_chunks: list) -> dict:
+def answer_question(question: str, retrieved_chunks: list) -> dict:
     prompt = _build_prompt(question, retrieved_chunks)
     citations = _citations(retrieved_chunks)
 
@@ -68,7 +65,3 @@ def generate_answer(question: str, retrieved_chunks: list) -> dict:
             "citations": citations,
             "generation_available": False,
         }
-
-
-answer_question = generate_answer
-

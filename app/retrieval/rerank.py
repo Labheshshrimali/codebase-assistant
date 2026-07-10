@@ -1,7 +1,5 @@
-"""Cross-encoder reranking: candidates from hybrid retrieval are cheap but
-noisy. A cross-encoder scores (query, chunk) pairs jointly, which is far more
-accurate than cosine similarity alone — this is what you'd later fine-tune
-on your own code-QA eval set for a measurable accuracy bump.
+"""Rerank candidates using a cross-encoder to improve accuracy.
+Using ms-marco-MiniLM as it fits well in memory for local inference.
 """
 
 from sentence_transformers import CrossEncoder

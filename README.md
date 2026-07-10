@@ -22,15 +22,28 @@ The eval part was the most interesting to debug. My first version showed literal
 
 I also learned the hard way that free hosting tiers matter a lot for anything using `torch`. My first deployment on Render kept crashing because their free tier only gives 512MB RAM, which isn't enough for the embedding model + reranker together. I moved to Hugging Face Spaces instead, which gives 16GB free.
 
-## Tech stack
+## 🏗️ Architecture
 
-- FastAPI for the backend
-- tree-sitter for parsing code into functions/classes
-- sentence-transformers for embeddings, plus a cross-encoder for reranking
-- Qdrant (cloud, free tier) for the vector database
-- networkx for the call graph
-- rank-bm25 for keyword search
-- Ollama (local) for generating the final answer — this only works when running locally, since the free hosting tier doesn't have Ollama installed. The deployed version shows the retrieved code directly instead.
+```mermaid
+graph LR
+    User[User Question] --> API[FastAPI API]
+    API --> Ingestion[Ingestion/Chunking]
+    Ingestion --> AST[tree-sitter Parser]
+    AST --> Qdrant[(Qdrant DB)]
+    API --> Retrieval[Retrieval Pipeline]
+    Retrieval --> Vector[Vector Search]
+    Retrieval --> BM25[BM25 Keyword]
+    Retrieval --> Graph[Call Graph]
+    Retrieval --> Rerank[Cross-Encoder Reranker]
+    Rerank --> LLM[Ollama/LLM]
+    LLM --> API
+```
+
+## 🛠️ Engineering Decisions & Challenges
+
+- **AST vs. Line-based Chunking:** Naive chunking often breaks code logic. By utilizing `tree-sitter`, I ensure chunks align with function/class boundaries, preserving semantic integrity.
+- **Hybrid Retrieval:** Vector search alone can miss keyword-heavy code. Combining it with BM25 and a call graph provides broader context, while the cross-encoder reranker improves precision by scoring relevance before generation.
+- **Handling Free-tier Constraints:** Initial deployments on Render crashed due to memory limits (512MB RAM). Migrating to Hugging Face Spaces provided the necessary 16GB RAM for the embedding models + reranker.
 
 ## Running it locally
 

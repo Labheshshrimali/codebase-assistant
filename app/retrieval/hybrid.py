@@ -1,8 +1,5 @@
-"""Fuse vector / graph / BM25 candidates, then rerank to a final context set.
-
-This is the piece to benchmark in your eval harness: run `retrieve()` with
-`use_graph=False, use_bm25=False` to reproduce a plain-vector-RAG baseline,
-and compare precision/recall against the full hybrid pipeline.
+"""Fuse vector, call-graph, and BM25 candidates, then rerank to a final context set.
+Provides the main entrypoint for the retrieval pipeline.
 """
 
 from dataclasses import dataclass
