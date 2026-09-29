@@ -132,3 +132,10 @@ def health():
 
 # Mount the frontend directory to serve the UI at /
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+@app.get("/")
+def root():
+    return {
+        "message": "Codebase Assistant API is running",
+        "docs": "/docs",
+        "health": "/health"
+    }
